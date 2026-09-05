@@ -1,0 +1,7 @@
+secrets.yaml
+*.key
+.venv/
+__pycache__/
+*.pyc
+govee.json
+*.log
