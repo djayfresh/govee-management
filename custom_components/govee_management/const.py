@@ -15,6 +15,14 @@ DEFAULT_POLL_INTERVAL = 60
 # which is what entries created before device selection existed expect.
 CONF_DEVICES = "devices"
 
+# Every device id the user has already been offered in a picker. A device that
+# is untracked but *known* was unticked on purpose, so it must stay quiet; only
+# ids absent from this list are reported as new.
+CONF_KNOWN_DEVICES = "known_devices"
+
+# Repair issue raised when the account grows a device we have never offered.
+ISSUE_NEW_DEVICE = "new_device_{}"
+
 # Dispatcher signal carrying MQTT push payloads, formatted with the entry id.
 SIGNAL_PUSH_EVENT = "govee_management_push_{}"
 
@@ -29,6 +37,9 @@ MIN_POLL_INTERVAL = 60
 # Govee's own docs suggest spacing calls out; tools/govee_api.py sleeps 1s.
 INTER_REQUEST_DELAY = 1.0
 REQUEST_TIMEOUT = 30
+# How often to re-read the inventory looking for devices added in the Govee
+# app. One extra call per interval, so this stays well inside the rate limit.
+DISCOVERY_INTERVAL = 900
 
 # --- MQTT push ----------------------------------------------------------
 # The API key is used as username AND password, and the topic is GA/<key>.

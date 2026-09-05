@@ -44,6 +44,7 @@ from homeassistant.helpers.selector import (
 from .api import GoveeApi, GoveeApiError, GoveeAuthError, GoveeRateLimitError
 from .const import (
     CONF_DEVICES,
+    CONF_KNOWN_DEVICES,
     CONF_POLL_INTERVAL,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
@@ -155,6 +156,12 @@ class GoveeConfigFlow(ConfigFlow, domain=DOMAIN):
                 data={CONF_API_KEY: self._api_key},
                 options={
                     CONF_DEVICES: user_input[CONF_DEVICES],
+                    # Everything offered here counts as seen, so unticking a
+                    # device now does not come back as a "new device" repair.
+                    CONF_KNOWN_DEVICES: [
+                        device["device"]
+                        for device in selectable_devices(self._raw_devices)
+                    ],
                     CONF_POLL_INTERVAL: DEFAULT_POLL_INTERVAL,
                 },
             )
@@ -239,7 +246,15 @@ class GoveeOptionsFlow(OptionsFlow):
         list is fetched live here, so it shows up without recreating the entry.
         """
         if user_input is not None:
-            return self._async_save({CONF_DEVICES: user_input[CONF_DEVICES]})
+            return self._async_save(
+                {
+                    CONF_DEVICES: user_input[CONF_DEVICES],
+                    CONF_KNOWN_DEVICES: [
+                        device["device"]
+                        for device in selectable_devices(self._raw_devices)
+                    ],
+                }
+            )
 
         api = GoveeApi(
             async_get_clientsession(self.hass), self.config_entry.data[CONF_API_KEY]
@@ -260,7 +275,7 @@ class GoveeOptionsFlow(OptionsFlow):
         selected = self.config_entry.options.get(
             CONF_DEVICES, [device["device"] for device in available]
         )
-        known = set(selected)
+        known = set(self.config_entry.options.get(CONF_KNOWN_DEVICES, selected))
         new = [
             device_label(device)
             for device in available

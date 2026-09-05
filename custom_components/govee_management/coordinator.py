@@ -6,27 +6,32 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import timedelta
 import logging
+from time import monotonic
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import GoveeApi, GoveeApiError, GoveeAuthError, parse_capabilities
 from .const import (
     CAP_AIR_QUALITY,
-    CONF_DEVICES,
     CAP_HUMIDITY,
     CAP_LEAK_EVENT,
     CAP_TEMPERATURE,
+    CONF_DEVICES,
+    CONF_KNOWN_DEVICES,
     CONF_POLL_INTERVAL,
     DEFAULT_POLL_INTERVAL,
+    DISCOVERY_INTERVAL,
     DOMAIN,
     GATEWAY_SKUS,
     GOVEE_SKUS,
     INTER_REQUEST_DELAY,
+    ISSUE_NEW_DEVICE,
     MIN_POLL_INTERVAL,
     SIGNAL_PUSH_EVENT,
 )
@@ -102,15 +107,22 @@ class GoveeCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self.all_devices: dict[str, GoveeDevice] = {}
         self.devices: dict[str, GoveeDevice] = {}
         self._selected: list[str] | None = entry.options.get(CONF_DEVICES)
+        self._known: set[str] | None = (
+            set(known)
+            if (known := entry.options.get(CONF_KNOWN_DEVICES)) is not None
+            else None
+        )
         self._rediscover = False
+        self._last_discovery = 0.0
 
     async def _async_setup(self) -> None:
         """Fetch the account inventory once, before the first poll."""
         await self._async_refresh_devices()
 
     async def _async_refresh_devices(self) -> None:
-        """Re-read the inventory and apply the user's device selection."""
+        """Re-read the inventory, apply the selection, flag anything new."""
         self.all_devices = await self._async_fetch_devices()
+        self._last_discovery = monotonic()
         if self._selected is None:
             self.devices = dict(self.all_devices)
         else:
@@ -119,6 +131,41 @@ class GoveeCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 for device_id, device in self.all_devices.items()
                 if device_id in self._selected
             }
+        self._async_sync_new_device_issues()
+
+    @callback
+    def _async_sync_new_device_issues(self) -> None:
+        """Raise a repair for each device the user has never been offered.
+
+        A device that is untracked but already *known* was unticked on
+        purpose, so it stays quiet - only genuinely new hardware is reported.
+        An entry predating this bookkeeping treats everything currently
+        present as known, so upgrading does not fire a burst of repairs.
+        """
+        known = self._known if self._known is not None else set(self.all_devices)
+
+        for device_id, device in self.all_devices.items():
+            issue_id = ISSUE_NEW_DEVICE.format(device_id)
+            if device_id in known or device_id in self.devices:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+                continue
+
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=True,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="new_device",
+                translation_placeholders={
+                    "name": device.name,
+                    "model": f"{device.sku} {device.model}",
+                },
+                data={
+                    "entry_id": self.config_entry.entry_id,
+                    "device_id": device_id,
+                },
+            )
 
     async def _async_fetch_devices(self) -> dict[str, GoveeDevice]:
         """Build the device map from ``GET /user/devices``."""
@@ -158,7 +205,9 @@ class GoveeCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         polled: their state simply is not in ``/device/state``, and a 60s poll
         would miss a transient leak even if it were.
         """
-        if self._rediscover:
+        if self._rediscover or monotonic() - self._last_discovery > DISCOVERY_INTERVAL:
+            # Notices hardware paired in the Govee app without waiting for a
+            # restart. One extra call every DISCOVERY_INTERVAL seconds.
             self._rediscover = False
             await self._async_refresh_devices()
 

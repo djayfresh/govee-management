@@ -152,6 +152,7 @@ custom_components/govee_management/
   push.py            reconnecting aiomqtt listener, key never logged
   coordinator.py     device discovery, REST poll, push fan-out via dispatcher
   config_flow.py     API key entry, device picker, reauth, options menu
+  repairs.py         one-click "track this new device" fix flow
   entity.py          shared DeviceInfo
   binary_sensor.py   leak -> device_class moisture, push + RestoreEntity
   sensor.py          temperature / humidity / PM2.5, from poll
@@ -170,6 +171,15 @@ recreating the entry. Shape follows the proxmoxve integration's node/VM
 selection. An entry with no `devices` option tracks everything.
 Untracked devices are pruned from the device registry on reload, so unticking
 one really removes its entities.
+
+New hardware is surfaced through the **repairs** platform rather than a
+persistent notification: `coordinator._async_sync_new_device_issues()` raises a
+fixable issue per unseen device, and `repairs.py` turns it into a one-click
+"track it". The quiet-when-unticked rule depends on `options["known_devices"]`
+- every id the pickers have already offered. Without it, unticking a device
+would immediately raise a repair asking to add it back. Both pickers rewrite
+`known_devices` on save. Re-discovery runs every `DISCOVERY_INTERVAL` (900s)
+from inside the poll, so a new device appears without a restart.
 
 Entities are derived from each device's declared **capability instances**, not
 from a SKU allowlist - `GOVEE_SKUS` only supplies friendly names and the

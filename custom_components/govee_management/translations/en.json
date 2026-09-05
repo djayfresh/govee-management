@@ -68,6 +68,22 @@
       "no_devices": "This Govee account has no devices the integration can use."
     }
   },
+  "issues": {
+    "new_device": {
+      "title": "New Govee device found: {name}",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Track this device?",
+            "description": "{name} appeared on your Govee account and is not being tracked yet. Submit to create its entities. If you would rather leave it out, ignore this notification - it will not come back for this device."
+          }
+        },
+        "abort": {
+          "entry_gone": "The Govee Management entry this device belonged to has been removed."
+        }
+      }
+    }
+  },
   "entity": {
     "binary_sensor": {
       "leak": {

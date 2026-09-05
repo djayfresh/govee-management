@@ -63,7 +63,16 @@ arrive instantly.
 
 ### Adding devices later
 
-Pair a new sensor in the Govee app, then go to the integration's
+Pair a new sensor in the Govee app and Home Assistant will tell you: a repair
+notification appears under **Settings → System → Repairs** saying *"New Govee
+device found"*, with a button that starts tracking it. Ignore the notification
+and the device stays out — it will not nag you about that one again.
+
+The account is re-checked every 15 minutes and at every restart, so new
+hardware is usually noticed within a quarter of an hour without you doing
+anything.
+
+You can also do it by hand at any time from the integration's
 **Configure → Devices to track**. The list is re-read from your account each
 time you open it, so new hardware appears there — no need to remove the
 integration or re-enter your key. The same screen lists what it found since
