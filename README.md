@@ -41,13 +41,35 @@ broker isn't involved — if you don't run one, you don't need one.
 
 | SKU | Device | Entities | Source |
 | --- | --- | --- | --- |
+| H5054 | Water Leak Detector | `binary_sensor` (moisture), per-probe detail | MQTT push |
+| H5058 | Water Leak Detector | `binary_sensor` (moisture), per-probe detail | MQTT push |
 | H5059 | Water Leak Detector | `binary_sensor` (moisture), per-probe detail | MQTT push |
 | H5310 | Pool Thermometer | `sensor` (temperature) | REST poll |
-| H5106 | Smart Air Quality Monitor | `sensor` temperature, humidity, air quality | REST poll |
+| H5106 | Smart Air Quality Monitor | `sensor` temperature, humidity, PM2.5 | REST poll |
+| H5074 | Mini Hygrometer Thermometer | `sensor` temperature, humidity | ⚠️ Bluetooth only — see below |
+| H5075 | Hygrometer Thermometer | `sensor` temperature, humidity | ⚠️ Bluetooth only — see below |
+
+**No SKU allowlist.** Entities come from the capability instances each device
+declares in `/user/devices`, so a Govee sensor not in this table that reports
+`sensorTemperature`, `sensorHumidity`, `airQuality` or a leak event should work
+with no code change — it just shows up as a bare SKU instead of a friendly
+model name. Open an issue with the SKU and it gets a name. Devices that declare
+nothing renderable, such as the H5044 gateway, aren't offered at all.
 
 Leak detectors report `online: false` over REST even when perfectly healthy —
 they're sleeping battery devices that wake only to transmit. Their events still
 arrive instantly.
+
+### Devices the cloud API can't actually read
+
+The **H5074** and **H5075** hygrometers are Bluetooth-only. They're listed in
+your Govee account like anything else, and the integration will happily offer
+them, but `/device/state` comes back `online: false` with empty readings — no
+value ever reaches the cloud. Their entities stay *unavailable*. Nothing in the
+API flags this in advance; the empty reading is the only signal.
+
+Untick them at setup and read them locally instead: `govee_ble` decodes both
+over a Bluetooth proxy, instantly and with no rate limit.
 
 ## Setup
 
