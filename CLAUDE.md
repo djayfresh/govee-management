@@ -185,7 +185,15 @@ custom_components/govee_management/
   brand/             icon/logo PNGs, bundled in-package (needs HA 2026.3+)
   manifest.json
 hacs.json
+blueprints/automation/govee_management/leak_alert.yaml
 ```
+
+The blueprint is **not** shipped inside `custom_components/`: Home Assistant
+only auto-populates `config/blueprints/` from core integrations, never from a
+custom one, and HACS installs this repo as an integration, not a blueprint. So
+it lives at the repo root and the README links a
+`my.home-assistant.io/redirect/blueprint_import` URL. `blueprint.source_url`
+must stay equal to that GitHub blob URL or re-import breaks.
 
 The user picks which devices to track: a multi-select step after the key is
 validated (all ticked by default), stored as `options["devices"]`. The options

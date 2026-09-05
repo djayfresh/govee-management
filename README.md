@@ -84,6 +84,35 @@ If you already receive a device over Bluetooth — the H5106 monitors are
 decoded locally by `govee_ble` via an ESPHome BLE proxy — you may prefer to
 untick it here and keep the local, instant, rate-limit-free copy.
 
+## Leak alert blueprint
+
+`blueprints/automation/govee_management/leak_alert.yaml` is an automation
+blueprint for the thing you actually installed leak detectors for: being told.
+
+[![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fdjayfresh%2Fgovee-management%2Fblob%2Fmaster%2Fblueprints%2Fautomation%2Fgovee_management%2Fleak_alert.yaml)
+
+HACS installs integrations, not blueprints, so import it with the badge above
+(or **Settings > Automations & scenes > Blueprints > Import blueprint**, pasting
+the file's GitHub URL). Then **Create automation > from a blueprint**.
+
+You pick:
+
+- **Leak detectors** - any number of them; one automation covers the lot and the
+  message names whichever one got wet.
+- **Notify these devices** - your phones and tablets, listed as notification
+  entities by the Home Assistant companion app.
+- Whether to also raise a notification in the HA sidebar (dismissed
+  automatically when the detector dries out), whether to say so when it dries,
+  how often to repeat the alert while water is still present, and any extra
+  actions - siren, light, valve, TTS - for wet and for dry.
+
+The message fields take templates: `{{ leak_name }}` and `{{ leak_entity }}`.
+
+It triggers only on `off -> on` and `on -> off`, so a restart cannot produce a
+false alarm. It is not tied to this integration - it accepts any `moisture`
+binary sensor, so detectors read locally by `govee_ble` or `rtl_433` can share
+the same automation.
+
 ## Command-line tools
 
 `tools/` holds the standalone scripts the integration is built on. They read

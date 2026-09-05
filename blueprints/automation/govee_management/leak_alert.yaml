@@ -1,0 +1,230 @@
+blueprint:
+  name: Govee leak detector alert
+  description: >-
+    Alert when a water leak detector goes wet, and again when it dries.
+
+
+    Pick the detectors to watch and the devices to notify. Optionally repeat
+    the alert every few minutes while water is still present, and run extra
+    actions of your own - a siren, a light, a spoken announcement, or shutting
+    a valve.
+
+
+    Written for the Govee Management integration, but it works with any
+    `binary_sensor` whose device class is `moisture`, so a detector read over
+    Bluetooth by `govee_ble` or over RF by `rtl_433` can share the same
+    automation.
+  domain: automation
+  source_url: https://github.com/djayfresh/govee-management/blob/master/blueprints/automation/govee_management/leak_alert.yaml
+  homeassistant:
+    min_version: "2025.2.0"
+  input:
+    leak_sensors:
+      name: Leak detectors
+      description: >-
+        The detectors to watch. Tick as many as you like - one automation
+        covers all of them, and the alert names whichever one got wet.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: binary_sensor
+              device_class: moisture
+
+    notify_targets:
+      name: Notify these devices
+      description: >-
+        Where to send the alert. Each phone or tablet running the Home
+        Assistant companion app appears here once it has been signed in.
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: notify
+
+    notification_title:
+      name: Notification title
+      default: Water leak
+      selector:
+        text:
+
+    wet_message:
+      name: Message when water is detected
+      description: >-
+        Templates work here. `{{ leak_name }}` is the detector's name and
+        `{{ leak_entity }}` its entity id.
+      default: "Water detected by {{ leak_name }}."
+      selector:
+        text:
+
+    notify_on_clear:
+      name: Notify when it dries out
+      description: Send a second message once the detector reports no water.
+      default: true
+      selector:
+        boolean:
+
+    dry_message:
+      name: Message when it dries out
+      default: "{{ leak_name }} is dry again."
+      selector:
+        text:
+
+    persistent_notification:
+      name: Also show it in Home Assistant
+      description: >-
+        Raise a notification in the Home Assistant sidebar as well, so the
+        alert is visible on a wall tablet or dashboard. It is dismissed
+        automatically when the detector dries out.
+      default: true
+      selector:
+        boolean:
+
+    reminder_minutes:
+      name: Repeat the alert every
+      description: >-
+        Keep re-sending the notification this often while water is still
+        present. Set to 0 to alert only once. Reminders stop within one
+        interval of the detector drying out.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 720
+          step: 5
+          unit_of_measurement: minutes
+          mode: box
+
+    wet_actions:
+      name: Extra actions when water is detected
+      description: >-
+        Anything else to run - sound a siren, flash a light, close a valve,
+        announce it on a speaker. Runs once, not on every reminder.
+      default: []
+      selector:
+        action:
+
+    dry_actions:
+      name: Extra actions when it dries out
+      description: Usually the reverse - silence the siren, reopen the valve.
+      default: []
+      selector:
+        action:
+
+# Several detectors can be wet at once, and each wet one holds its own reminder
+# loop, so runs must not cancel one another.
+mode: parallel
+max: 25
+
+# Deliberately explicit at both ends: off -> on and on -> off only. A detector
+# coming back from `unavailable` after a restart therefore cannot fire a false
+# alert, and these sensors never sit at `unknown` - Govee Management starts
+# them dry - so nothing real is missed.
+triggers:
+  - trigger: state
+    entity_id: !input leak_sensors
+    from: "off"
+    to: "on"
+    id: wet
+  - trigger: state
+    entity_id: !input leak_sensors
+    from: "on"
+    to: "off"
+    id: dry
+
+variables:
+  leak_entity: "{{ trigger.entity_id }}"
+  leak_name: "{{ trigger.to_state.name }}"
+  targets: !input notify_targets
+  reminder: !input reminder_minutes
+  show_persistent: !input persistent_notification
+  tell_me_when_dry: !input notify_on_clear
+
+actions:
+  - choose:
+      - alias: Water detected
+        conditions:
+          - condition: trigger
+            id: wet
+        sequence:
+          # Sirens and valves first: they are the part that matters in the
+          # seconds before anyone reads a phone.
+          - alias: Extra actions
+            choose: []
+            default: !input wet_actions
+
+          - alias: Alert, and keep alerting while it is still wet
+            repeat:
+              sequence:
+                - alias: Notify every chosen device
+                  repeat:
+                    for_each: "{{ targets }}"
+                    sequence:
+                      - action: notify.send_message
+                        target:
+                          entity_id: "{{ repeat.item }}"
+                        data:
+                          title: !input notification_title
+                          message: !input wet_message
+
+                - alias: Raise it in Home Assistant too
+                  if:
+                    - condition: template
+                      value_template: "{{ show_persistent }}"
+                  then:
+                    # A stable id means a reminder replaces the previous card
+                    # instead of stacking, and drying out can dismiss it.
+                    - action: persistent_notification.create
+                      data:
+                        title: !input notification_title
+                        message: !input wet_message
+                        notification_id: "govee_leak_{{ leak_entity }}"
+
+                - alias: Stop here unless reminders are switched on
+                  if:
+                    - condition: template
+                      value_template: "{{ reminder | int(0) == 0 }}"
+                  then:
+                    - stop: Alerted once; reminders are off.
+
+                - delay:
+                    minutes: !input reminder_minutes
+              while:
+                # Re-read the sensor rather than trusting the trigger: after
+                # the delay it may well have dried out.
+                - condition: template
+                  value_template: "{{ is_state(leak_entity, 'on') }}"
+
+      - alias: Dried out
+        conditions:
+          - condition: trigger
+            id: dry
+        sequence:
+          - alias: Clear the Home Assistant notification
+            if:
+              - condition: template
+                value_template: "{{ show_persistent }}"
+            then:
+              - action: persistent_notification.dismiss
+                data:
+                  notification_id: "govee_leak_{{ leak_entity }}"
+
+          - alias: Say so, if asked to
+            if:
+              - condition: template
+                value_template: "{{ tell_me_when_dry }}"
+            then:
+              - repeat:
+                  for_each: "{{ targets }}"
+                  sequence:
+                    - action: notify.send_message
+                      target:
+                        entity_id: "{{ repeat.item }}"
+                      data:
+                        title: !input notification_title
+                        message: !input dry_message
+
+          - alias: Extra actions
+            choose: []
+            default: !input dry_actions
