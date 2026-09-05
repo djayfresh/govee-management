@@ -62,37 +62,31 @@ LEAK_VALUE_LEAKED = 1
 LEAK_VALUE_CLEARED = 2
 
 # --- SKU map -------------------------------------------------------------
-# source:
-#   "push" - state arrives only via the MQTT event stream. REST reports
-#            online=false for these even when healthy; they are sleeping
-#            battery devices. Never gate availability on `online` here.
-#   "poll" - state comes from POST /device/state.
+# Advisory only. Entities are created from each device's declared capability
+# instances, not from this table, so an unlisted SKU still works - it just
+# shows its bare model number and assumes degF.
 #
-# reports_fahrenheit: every observed device returned degF. It is unresolved
-# whether the API is always degF or mirrors the app display unit, so re-verify
-# if the user switches the Govee app to Celsius.
+# reports_fahrenheit: every device observed live returned degF. It is
+# unresolved whether the API is always degF or mirrors the app display unit,
+# so re-verify if the Govee app is switched to Celsius. Omitted where the
+# device reports no temperature at all; the default is True.
+#
+# Verified against two accounts (2026-09-04, 2026-09-05). Leak detectors send
+# `bodyAppearedEvent` over MQTT push and report only `online` over REST.
 GOVEE_SKUS = {
-    "H5059": {
-        "name": "Water Leak Detector",
-        "source": "push",
-        "binary_sensors": ["moisture"],
-        "sensors": [],
-        "reports_fahrenheit": False,
-    },
-    "H5310": {
-        "name": "Pool Thermometer",
-        "source": "poll",
-        "binary_sensors": [],
-        "sensors": [CAP_TEMPERATURE],
-        "reports_fahrenheit": True,
-    },
-    "H5106": {
-        "name": "Smart Air Quality Monitor",
-        "source": "poll",
-        "binary_sensors": [],
-        "sensors": [CAP_TEMPERATURE, CAP_HUMIDITY, CAP_AIR_QUALITY],
-        "reports_fahrenheit": True,
-    },
+    # Water leak detectors - push only.
+    "H5054": {"name": "Water Leak Detector"},
+    "H5058": {"name": "Water Leak Detector"},
+    "H5059": {"name": "Water Leak Detector"},
+    # Thermometers and monitors - REST poll.
+    "H5310": {"name": "Pool Thermometer", "reports_fahrenheit": True},
+    "H5106": {"name": "Smart Air Quality Monitor", "reports_fahrenheit": True},
+    # Bluetooth-only hygrometers. They appear in the account inventory but
+    # never reach the cloud: /device/state returns online=false and empty
+    # strings for both readings, so their entities stay unavailable. Read
+    # these locally with `govee_ble` via a Bluetooth proxy instead.
+    "H5074": {"name": "Mini Hygrometer Thermometer", "reports_fahrenheit": True},
+    "H5075": {"name": "Hygrometer Thermometer", "reports_fahrenheit": True},
 }
 
 # Gateway that bridges H5059 / H5310 over a proprietary sub-GHz radio. It is

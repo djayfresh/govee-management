@@ -5,7 +5,8 @@ Three facts shape this file:
 * ``/device/state`` on an H5059 returns only ``online``. There is no leak
   field, so polling can never detect a leak.
 * An event is delivered once and never replayed, so state has to survive a
-  restart. Hence RestoreEntity.
+  restart. Hence RestoreEntity, falling back to dry when there is nothing to
+  restore.
 * These are sleeping battery devices that report ``online: false`` while
   perfectly healthy, so availability must not depend on it.
 """
@@ -75,6 +76,15 @@ class GoveeLeakSensor(GoveeEntity, BinarySensorEntity, RestoreEntity):
             for probe in ("probe_top", "probe_bottom"):
                 if probe in last.attributes:
                     self._probes[probe] = last.attributes[probe]
+
+        if self._attr_is_on is None:
+            # Nothing restored - a brand new entity, or one whose last state
+            # was unknown. Start dry rather than unknown: these detectors only
+            # transmit on a change, so no event genuinely means no water, and
+            # `unknown` breaks template sensors and dashboard cards that treat
+            # a moisture sensor as a plain boolean. The first real event
+            # corrects it either way.
+            self._attr_is_on = False
 
         self.async_on_remove(
             async_dispatcher_connect(

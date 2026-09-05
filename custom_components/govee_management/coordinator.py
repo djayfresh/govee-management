@@ -79,7 +79,7 @@ class GoveeDevice:
         stays a per-SKU flag defaulting to True for unknown hardware.
         """
         known = GOVEE_SKUS.get(self.sku)
-        return known["reports_fahrenheit"] if known else True
+        return known.get("reports_fahrenheit", True) if known else True
 
 
 class GoveeCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):

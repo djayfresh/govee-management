@@ -61,6 +61,12 @@ Seven devices on the account:
 Confirmed live values: pool `sensorTemperature=85.46`, Bedroom `71.78 / 52.4 /
 airQuality=1`, Family Room `67.1 / 54.2 / airQuality=1`.
 
+A second account (2026-09-05) added four more SKUs, all handled with no code
+change because entities come from capability instances: **H5054** and
+**H5058** leak detectors (`bodyAppearedEvent`, push, like the H5059), and
+**H5074** / **H5075** hygrometers (`sensorTemperature` + `sensorHumidity`,
+but Bluetooth-only - see trap 5).
+
 ## Traps — each of these cost real time to find
 
 1. **`online: false` does not mean offline.** All four H5059 leak detectors
@@ -83,7 +89,24 @@ airQuality=1`, Family Room `67.1 / 54.2 / airQuality=1`.
    for the sibling H5109 adds a `reports_fahrenheit` flag for exactly this.
    If the user switches the Govee app to °C, re-verify.
 
-5. **Buffered stdout hides events.** Redirecting the MQTT listener to a file
+5. **Cloud-invisible devices report empty strings.** H5074 and H5075 are
+   Bluetooth-only hygrometers. They appear in `/user/devices` like anything
+   else, but `/device/state` returns `online=false` and `sensorTemperature`
+   / `sensorHumidity` as `""` - not null, not absent, an empty string. Any
+   `float()` on that raises. `sensor._as_number()` maps `""`, `None`, `{}`,
+   `[]` and junk strings to `None` so the entity reads unavailable. There is
+   **no API field** that flags this in advance; the empty string is the only
+   signal. Read these locally with `govee_ble` instead.
+
+6. **No rooms, homes or gateways in the API.** Re-verified 2026-09-05 against
+   a second account with multiple homes configured in the Govee app: devices
+   carry exactly `sku`, `device`, `deviceName`, `type`, `capabilities` and
+   nothing else. The docs agree. The legacy `developer-api.govee.com/v1`
+   endpoints do expose `retrievable`/`controllable`, but return **zero
+   devices** - they only ever covered lights and appliances. Grouping has to
+   come from Home Assistant areas.
+
+7. **Buffered stdout hides events.** Redirecting the MQTT listener to a file
    without `-u` leaves the payload in the buffer while stderr tracebacks land
    first, making a working subscription look broken.
 
