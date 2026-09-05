@@ -5,6 +5,18 @@ See CLAUDE.md for the captured payloads and the traps behind these choices.
 """
 
 DOMAIN = "govee_management"
+MANUFACTURER = "Govee"
+
+# --- Config entry -------------------------------------------------------
+CONF_POLL_INTERVAL = "poll_interval"
+DEFAULT_POLL_INTERVAL = 60
+
+# Device ids the user chose to track. A missing key means "track everything",
+# which is what entries created before device selection existed expect.
+CONF_DEVICES = "devices"
+
+# Dispatcher signal carrying MQTT push payloads, formatted with the entry id.
+SIGNAL_PUSH_EVENT = "govee_management_push_{}"
 
 # --- REST ---------------------------------------------------------------
 API_BASE = "https://openapi.api.govee.com/router/api/v1"
@@ -14,12 +26,18 @@ API_KEY_HEADER = "Govee-API-Key"
 
 # Govee rate limits the free tier; do not go below this.
 MIN_POLL_INTERVAL = 60
+# Govee's own docs suggest spacing calls out; tools/govee_api.py sleeps 1s.
+INTER_REQUEST_DELAY = 1.0
+REQUEST_TIMEOUT = 30
 
 # --- MQTT push ----------------------------------------------------------
 # The API key is used as username AND password, and the topic is GA/<key>.
 MQTT_HOST = "mqtt.openapi.govee.com"
 MQTT_PORT = 8883
 MQTT_TOPIC_TEMPLATE = "GA/{key}"
+MQTT_KEEPALIVE = 60
+MQTT_RECONNECT_MIN = 5
+MQTT_RECONNECT_MAX = 300
 
 # --- Capability instances ------------------------------------------------
 CAP_TEMPERATURE = "sensorTemperature"

@@ -58,6 +58,22 @@ arrive instantly.
    and restart.
 3. **Add the integration.** Settings → Devices & Services → Add Integration →
    *Govee Management* → paste the key.
+4. **Pick your devices.** The next step lists everything on the account; all of
+   them are ticked by default. Untick anything you don't want entities for.
+
+### Adding devices later
+
+Pair a new sensor in the Govee app, then go to the integration's
+**Configure → Devices to track**. The list is re-read from your account each
+time you open it, so new hardware appears there — no need to remove the
+integration or re-enter your key. The same screen lists what it found since
+you last looked. Unticking a device removes it and its entities.
+
+**Configure → Polling** changes the REST poll interval (60s floor).
+
+If you already receive a device over Bluetooth — the H5106 monitors are
+decoded locally by `govee_ble` via an ESPHome BLE proxy — you may prefer to
+untick it here and keep the local, instant, rate-limit-free copy.
 
 ## Command-line tools
 

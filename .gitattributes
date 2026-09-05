@@ -1,0 +1,2 @@
+# The repo is LF everywhere; Windows editors must not reintroduce CRLF.
+* text=auto eol=lf

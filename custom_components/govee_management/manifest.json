@@ -1,11 +1,14 @@
 {
   "domain": "govee_management",
   "name": "Govee Management",
-  "codeowners": [],
+  "codeowners": ["@djayfresh"],
   "config_flow": true,
+  "dependencies": [],
   "documentation": "https://github.com/djayfresh/govee-management",
+  "integration_type": "hub",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/djayfresh/govee-management/issues",
+  "loggers": ["aiomqtt"],
   "requirements": ["aiomqtt>=2.0.0"],
   "version": "0.1.0"
 }

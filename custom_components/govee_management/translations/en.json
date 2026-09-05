@@ -1,0 +1,89 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Govee Management",
+        "description": "Paste your personal Govee API key. Get one in the Govee Home app: User → About Us → Request API Key. It arrives by email within seconds.",
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "Used for the REST API and as both the username and password for Govee's push stream. It is stored only in Home Assistant."
+        }
+      },
+      "devices": {
+        "title": "Choose devices",
+        "description": "Found {count} devices on this Govee account. Tick the ones to track. You can change this later, and pick up devices added afterwards, without re-entering your key.",
+        "data": {
+          "devices": "Devices to track"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Govee Management",
+        "description": "Govee rejected the stored API key. Paste a current one.",
+        "data": {
+          "api_key": "API key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Govee API. Check Home Assistant's internet connection and try again.",
+      "invalid_auth": "Govee rejected that API key.",
+      "rate_limited": "Govee is rate limiting this key. Wait a minute and try again."
+    },
+    "abort": {
+      "already_configured": "This Govee account is already set up.",
+      "no_devices": "This Govee account has no devices the integration can use.",
+      "reauth_successful": "Reconnected to Govee.",
+      "wrong_account": "That key belongs to a different Govee account. Use the key for the account already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Govee Management",
+        "menu_options": {
+          "devices": "Devices to track",
+          "polling": "Polling"
+        }
+      },
+      "devices": {
+        "title": "Devices to track",
+        "description": "Re-read from your Govee account: {count} devices available, newly found since last time: {new}. Tick the ones to track. Unticking a device removes it and its entities.",
+        "data": {
+          "devices": "Devices to track"
+        }
+      },
+      "polling": {
+        "title": "Polling",
+        "description": "How often to poll temperature, humidity and air quality over REST. Leak events arrive by push and are unaffected. Govee rate limits the free API, so 60 seconds is the floor.",
+        "data": {
+          "poll_interval": "Poll interval"
+        }
+      }
+    },
+    "abort": {
+      "cannot_connect": "Could not reach the Govee API to refresh the device list. Try again in a moment.",
+      "invalid_auth": "Govee rejected the stored API key. Reconfigure the integration to enter a new one.",
+      "no_devices": "This Govee account has no devices the integration can use."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "leak": {
+        "name": "Leak"
+      }
+    },
+    "sensor": {
+      "sensorTemperature": {
+        "name": "Temperature"
+      },
+      "sensorHumidity": {
+        "name": "Humidity"
+      },
+      "airQuality": {
+        "name": "Air quality"
+      }
+    }
+  }
+}

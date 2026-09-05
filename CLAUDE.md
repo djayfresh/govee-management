@@ -7,7 +7,7 @@ its REST endpoints and its MQTT event stream.
 Split out of `C:\dev\esp32-ble-proxy` on 2026-09-04. That repo remains the
 ESP32 BLE proxy; this one is Govee only. They share nothing but history.
 
-## Status: research complete, integration not yet written
+## Status: integration written (v0.1.0), not yet run on the HA host
 
 Everything below was **verified live against the user's real account** in the
 originating session. The two scripts in `tools/` work today and are the
@@ -147,15 +147,49 @@ upstreamed. Scope for the first pass is **all three** device families.
 
 ```
 custom_components/govee_management/
-  __init__.py        setup, start/stop the push task
-  config_flow.py     API key entry, validate via GET /user/devices
-  coordinator.py     DataUpdateCoordinator for REST poll + MQTT push task
-  binary_sensor.py   H5059 -> device_class: moisture, from push
-  sensor.py          H5310 temp; H5106 temp/humidity/air quality, from poll
-  const.py           SKU -> capability map (already written, verified data)
+  __init__.py        setup, runtime_data, start/stop the push task
+  api.py             async REST client + parse_capabilities (list/dict safe)
+  push.py            reconnecting aiomqtt listener, key never logged
+  coordinator.py     device discovery, REST poll, push fan-out via dispatcher
+  config_flow.py     API key entry, device picker, reauth, options menu
+  entity.py          shared DeviceInfo
+  binary_sensor.py   leak -> device_class moisture, push + RestoreEntity
+  sensor.py          temperature / humidity / PM2.5, from poll
+  diagnostics.py     redacts the key
+  const.py           SKU map, endpoints, signals
+  strings.json + translations/en.json
   manifest.json
 hacs.json
 ```
+
+The user picks which devices to track: a multi-select step after the key is
+validated (all ticked by default), stored as `options["devices"]`. The options
+flow is a menu of **Devices to track** / **Polling**; the device step re-fetches
+`/user/devices` live, so hardware paired after setup shows up without
+recreating the entry. Shape follows the proxmoxve integration's node/VM
+selection. An entry with no `devices` option tracks everything.
+Untracked devices are pruned from the device registry on reload, so unticking
+one really removes its entities.
+
+Entities are derived from each device's declared **capability instances**, not
+from a SKU allowlist - `GOVEE_SKUS` only supplies friendly names and the
+`reports_fahrenheit` flag. Unknown Govee sensors that report
+`sensorTemperature` / `sensorHumidity` / `airQuality` therefore work with no
+code change, defaulting to degF.
+
+Min HA version is 2025.2.0 (hacs.json). The user runs core 2026.9.0, so every
+API used is available.
+
+**No local HA test rig is possible on this machine**: current HA needs Python
+3.13+, and only 3.12 and 3.14 are installed. `.venv` exists with
+paho-mqtt/pyyaml/aiomqtt for `tools/` only. Verification so far is the live
+`tools/govee_api.py --devices` call (7 devices, matches the table above) plus
+a direct test of `parse_capabilities` against the captured leak payload, plus
+the device picker exercised against the live inventory behind minimal HA stubs
+(scratchpad only). `airQuality` = PM2.5 in ug/m3 is confirmed: `govee_ble`
+decodes the same H5106 that way over the BLE proxy.
+Testing the integration itself means copying `custom_components/` to the HA
+host and restarting.
 
 Notes for whoever builds it:
 - Use `aiomqtt` (or `paho` in an executor) for the push task; keep it
