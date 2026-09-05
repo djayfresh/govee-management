@@ -7,7 +7,13 @@ its REST endpoints and its MQTT event stream.
 Split out of `C:\dev\esp32-ble-proxy` on 2026-09-04. That repo remains the
 ESP32 BLE proxy; this one is Govee only. They share nothing but history.
 
-## Status: integration written (v0.1.0), not yet run on the HA host
+## Status: v0.3.2, written and committed, not yet run on the HA host
+
+Every module in the build plan exists and is committed (see *How it is built*).
+The one outstanding step is deployment: copy
+`custom_components/govee_management/` to the HA host's
+`config/custom_components/` and restart. No line of this integration has yet
+executed inside a Home Assistant runtime.
 
 Everything below was **verified live against the user's real account** in the
 originating session. The two scripts in `tools/` work today and are the
@@ -19,6 +25,15 @@ shapes.
 .venv/Scripts/python.exe tools/govee_api.py --devices  # inventory only, 1 call
 .venv/Scripts/python.exe -u tools/govee_mqtt.py        # live event stream
 ```
+
+History, newest first — one decision per commit:
+
+| Version | What landed |
+| --- | --- |
+| 0.3.2 | Four more SKUs from a second account; leak sensors start dry, not unknown |
+| 0.3.x | Decisions moved off SKUs onto declared capability instances; leak alert blueprint |
+| 0.2.x | Repairs-based new-device discovery; brand icons bundled in-package |
+| 0.1.0 | First working integration: REST poll, MQTT push, config flow, device picker |
 
 ## Credentials
 
@@ -162,11 +177,14 @@ Device-list capability instances seen: `bodyAppearedEvent` (H5059),
 `sensorTemperature` (H5310), `airQuality`/`sensorHumidity`/`sensorTemperature`
 (H5106), plus `online` in state responses.
 
-## Build plan
+## How it is built
 
 Decided with the user: **custom integration**, not an add-on. No MQTT broker
 dependency, native entities, config flow, and it is the only form that could be
-upstreamed. Scope for the first pass is **all three** device families.
+upstreamed. Scope of the first pass was **all three** device families, and all
+three shipped.
+
+The layout below is what is on disk today, not a plan:
 
 ```
 custom_components/govee_management/
@@ -183,9 +201,12 @@ custom_components/govee_management/
   const.py           SKU map, endpoints, signals
   strings.json + translations/en.json
   brand/             icon/logo PNGs, bundled in-package (needs HA 2026.3+)
-  manifest.json
+  manifest.json      version lives here; keep it in step with the commit
 hacs.json
 blueprints/automation/govee_management/leak_alert.yaml
+README.md            user-facing; the device table here must match const.py
+secrets.yaml.example
+tools/govee_api.py, tools/govee_mqtt.py
 ```
 
 The blueprint is **not** shipped inside `custom_components/`: Home Assistant
@@ -245,15 +266,23 @@ decodes the same H5106 that way over the BLE proxy.
 Testing the integration itself means copying `custom_components/` to the HA
 host and restarting.
 
-Notes for whoever builds it:
-- Use `aiomqtt` (or `paho` in an executor) for the push task; keep it
-  reconnecting. `tools/govee_mqtt.py` shows the working connect/auth/subscribe.
-- Poll interval 60s minimum. One `/user/devices` call at setup, then
-  `/device/state` per measurement device.
-- Leak sensors must be driven by push, with state surviving restarts — an
-  event fires once and is not replayed. Consider restoring last state.
-- Test with no Docker available on this machine: copy `custom_components/` to
-  `/config/custom_components/` on the HA host and restart.
+How those constraints were resolved:
+- The push task uses `aiomqtt` (the only entry in `manifest.requirements`) with
+  a reconnect loop bounded by `MQTT_RECONNECT_MIN`/`MAX` (5s-300s).
+  `tools/govee_mqtt.py` remains the reference connect/auth/subscribe.
+- Poll interval floors at `MIN_POLL_INTERVAL` = 60s, default 60. One
+  `/user/devices` call at setup and every `DISCOVERY_INTERVAL`, then
+  `/device/state` per polled device with `INTER_REQUEST_DELAY` = 1s between.
+- Leak sensors are `RestoreEntity` and **start dry, not unknown**, when there
+  is nothing to restore. An event fires once and is never replayed, so silence
+  genuinely means no water; `unknown` breaks template sensors and dashboard
+  cards that treat a moisture sensor as a boolean. The first real event
+  corrects it either way. `_attr_available` is pinned `True` for the same
+  reason `online` is ignored (trap 1). Per-probe values are surfaced as
+  `probe_top` / `probe_bottom` attributes and restored alongside the state.
+- Deployment, still pending: copy `custom_components/` to
+  `/config/custom_components/` on the HA host and restart. No Docker here, so
+  there is no shortcut.
 
 ## Upstream opportunity
 
