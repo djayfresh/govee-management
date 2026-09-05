@@ -13,6 +13,7 @@ Three facts shape this file:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -33,6 +34,8 @@ from .const import (
 )
 from .coordinator import GoveeDevice
 from .entity import GoveeEntity
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -104,13 +107,11 @@ class GoveeLeakSensor(GoveeEntity, BinarySensorEntity, RestoreEntity):
         if not isinstance(event, dict):
             return
 
-        value = event.get("value")
-        if value == LEAK_VALUE_LEAKED:
-            self._attr_is_on = True
-        elif value == LEAK_VALUE_CLEARED:
-            self._attr_is_on = False
-        else:
+        wet = _is_wet(event)
+        if wet is None:
+            _LOGGER.debug("Unrecognised leak event for %s: %s", self.device.sku, event)
             return
+        self._attr_is_on = wet
 
         probes = event.get("probesState") or {}
         if isinstance(probes, dict):
@@ -125,3 +126,27 @@ class GoveeLeakSensor(GoveeEntity, BinarySensorEntity, RestoreEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Per-probe detail: 1 means water present on that probe."""
         return self._probes
+
+
+def _is_wet(event: dict[str, Any]) -> bool | None:
+    """Read one event as wet / dry, or None if it means neither.
+
+    Govee declares the possible states per device in the capability itself -
+    ``eventState.options`` lists ``LEAKED`` and ``UN_LEAKED`` with their
+    values - and sends that same name back with the event. Reading the name
+    keeps the numbers out of the logic, so a device declaring different codes
+    still works. The numeric values remain a fallback for a payload that
+    omits the name.
+    """
+    name = event.get("name")
+    if isinstance(name, str) and name.strip():
+        # "UN_LEAKED" is the negation of "LEAKED"; Govee prefixes the cleared
+        # state of every event capability this way.
+        return not name.strip().upper().startswith("UN_")
+
+    value = event.get("value")
+    if value == LEAK_VALUE_LEAKED:
+        return True
+    if value == LEAK_VALUE_CLEARED:
+        return False
+    return None

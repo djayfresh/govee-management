@@ -205,6 +205,18 @@ would immediately raise a repair asking to add it back. Both pickers rewrite
 `known_devices` on save. Re-discovery runs every `DISCOVERY_INTERVAL` (900s)
 from inside the poll, so a new device appears without a restart.
 
+No SKU appears in any decision. A device is offered if it declares an
+instance in `HANDLED_INSTANCES`, which is also how a bridging gateway drops
+out - it declares nothing renderable. Leak state is read from the `name` Govee
+sends with the event (`LEAKED` / `UN_LEAKED`, declared per device in
+`eventState.options`), with the numeric codes kept only as a fallback for a
+payload that omits it. `GOVEE_SKUS` is advisory: a display name and the degF
+assumption, nothing more.
+
+The one thing the schema does **not** give is units. Property capabilities
+carry only `type` and `instance` - no unit, no range - so the instance -> HA
+device class and unit mapping in `sensor.py` has to live in this integration.
+
 Entities are derived from each device's declared **capability instances**, not
 from a SKU allowlist - `GOVEE_SKUS` only supplies friendly names and the
 `reports_fahrenheit` flag. Unknown Govee sensors that report

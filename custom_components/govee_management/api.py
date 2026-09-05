@@ -129,6 +129,15 @@ def parse_capabilities(capabilities: Any) -> dict[str, Any]:
     return result
 
 
+def device_instances(raw_device: dict[str, Any]) -> set[str]:
+    """Capability instances a raw ``/user/devices`` entry declares."""
+    return {
+        capability["instance"]
+        for capability in raw_device.get("capabilities") or []
+        if isinstance(capability, dict) and capability.get("instance")
+    }
+
+
 def _endpoint(url: str) -> str:
     """Last path segment of a URL, for log lines that must not carry the key."""
     return url.rsplit("/", 1)[-1]

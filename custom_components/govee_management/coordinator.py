@@ -16,7 +16,13 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import GoveeApi, GoveeApiError, GoveeAuthError, parse_capabilities
+from .api import (
+    GoveeApi,
+    GoveeApiError,
+    GoveeAuthError,
+    device_instances,
+    parse_capabilities,
+)
 from .const import (
     CAP_AIR_QUALITY,
     CAP_HUMIDITY,
@@ -28,21 +34,16 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     DISCOVERY_INTERVAL,
     DOMAIN,
-    GATEWAY_SKUS,
     GOVEE_SKUS,
     INTER_REQUEST_DELAY,
     ISSUE_NEW_DEVICE,
     MIN_POLL_INTERVAL,
+    POLLED_INSTANCES,
+    PUSHED_INSTANCES,
     SIGNAL_PUSH_EVENT,
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-# Measurement capabilities worth polling. Anything else a device declares is
-# ignored rather than guessed at.
-POLLED_INSTANCES = (CAP_TEMPERATURE, CAP_HUMIDITY, CAP_AIR_QUALITY)
-# Event capabilities that arrive over MQTT push only.
-PUSHED_INSTANCES = (CAP_LEAK_EVENT,)
 
 
 @dataclass(slots=True)
@@ -180,20 +181,21 @@ class GoveeCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         for raw in raw_devices:
             sku = raw.get("sku")
             device_id = raw.get("device")
-            if not sku or not device_id or sku in GATEWAY_SKUS:
-                # The H5044 gateway bridges other devices but is not a sensor.
+            if not sku or not device_id:
                 continue
-            instances = {
-                capability.get("instance")
-                for capability in raw.get("capabilities") or []
-                if isinstance(capability, dict) and capability.get("instance")
-            }
-            devices[device_id] = GoveeDevice(
+
+            device = GoveeDevice(
                 sku=sku,
                 device_id=device_id,
                 name=raw.get("deviceName") or f"{sku} {device_id[-5:]}",
-                instances=instances,
+                instances=device_instances(raw),
             )
+            if not device.polled and not device.pushed:
+                # Nothing we can render. This is how a bridging gateway or any
+                # other accessory drops out - by what it declares, not by SKU.
+                _LOGGER.debug("Skipping %s: declares no capability we handle", sku)
+                continue
+            devices[device_id] = device
 
         _LOGGER.debug("Discovered %s Govee devices", len(devices))
         return devices

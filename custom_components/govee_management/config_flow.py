@@ -41,15 +41,21 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .api import GoveeApi, GoveeApiError, GoveeAuthError, GoveeRateLimitError
+from .api import (
+    GoveeApi,
+    GoveeApiError,
+    GoveeAuthError,
+    GoveeRateLimitError,
+    device_instances,
+)
 from .const import (
     CONF_DEVICES,
     CONF_KNOWN_DEVICES,
     CONF_POLL_INTERVAL,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
-    GATEWAY_SKUS,
     GOVEE_SKUS,
+    HANDLED_INSTANCES,
     MIN_POLL_INTERVAL,
 )
 
@@ -65,11 +71,16 @@ STEP_API_KEY_SCHEMA = vol.Schema(
 
 
 def selectable_devices(raw_devices: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Devices worth offering: everything but the bridging gateway."""
+    """Devices worth offering: those declaring a capability we can render.
+
+    Offering a device we would build no entities for - a bridging gateway, say
+    - is just a confusing checkbox, and testing what it *declares* means no
+    SKU needs to be known in advance.
+    """
     return [
         device
         for device in raw_devices
-        if device.get("device") and device.get("sku") not in GATEWAY_SKUS
+        if device.get("device") and device_instances(device) & HANDLED_INSTANCES
     ]
 
 

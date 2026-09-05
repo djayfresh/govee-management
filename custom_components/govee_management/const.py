@@ -57,9 +57,17 @@ CAP_AIR_QUALITY = "airQuality"
 CAP_ONLINE = "online"
 CAP_LEAK_EVENT = "bodyAppearedEvent"
 
-# bodyAppearedEvent state values
+# Fallback only. The device's own `eventState.options` declares these - see
+# binary_sensor, which prefers the name Govee sends with the event.
 LEAK_VALUE_LEAKED = 1
 LEAK_VALUE_CLEARED = 2
+
+# Instances this integration knows how to render. A device declaring none of
+# them has nothing to show - that is how gateways and other accessories are
+# skipped, rather than by naming their SKUs.
+POLLED_INSTANCES = (CAP_TEMPERATURE, CAP_HUMIDITY, CAP_AIR_QUALITY)
+PUSHED_INSTANCES = (CAP_LEAK_EVENT,)
+HANDLED_INSTANCES = frozenset(POLLED_INSTANCES + PUSHED_INSTANCES)
 
 # --- SKU map -------------------------------------------------------------
 # Advisory only. Entities are created from each device's declared capability
@@ -89,6 +97,3 @@ GOVEE_SKUS = {
     "H5075": {"name": "Hygrometer Thermometer", "reports_fahrenheit": True},
 }
 
-# Gateway that bridges H5059 / H5310 over a proprietary sub-GHz radio. It is
-# not itself a sensor and is intentionally not exposed as one.
-GATEWAY_SKUS = {"H5044"}
