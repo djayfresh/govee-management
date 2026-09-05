@@ -120,3 +120,12 @@ gateway. The detectors' 105 dB local alarms sound regardless, but Home
 Assistant won't know during an outage. If you want alerting that survives all
 three, these sensors can also be received directly with an RTL-SDR via
 `rtl_433` — worth running alongside this rather than instead of it.
+
+## Brand icon
+
+`custom_components/govee_management/brand/` holds the integration's icon and
+logo. Home Assistant 2026.3 and later reads brand images straight out of the
+integration, so no PR to `home-assistant/brands` is needed.
+
+`Logo_mat.png` at the repo root is the source artwork. Regenerate the set
+after changing it — trim, centre and resize to 256/512 px, transparent PNG.

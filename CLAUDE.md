@@ -159,6 +159,7 @@ custom_components/govee_management/
   diagnostics.py     redacts the key
   const.py           SKU map, endpoints, signals
   strings.json + translations/en.json
+  brand/             icon/logo PNGs, bundled in-package (needs HA 2026.3+)
   manifest.json
 hacs.json
 ```
